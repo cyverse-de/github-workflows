@@ -3,7 +3,7 @@ name: skaffold-build
 on:
   workflow_call:
     inputs:
-      prerelease:
+      build-prerelease:
         required: true
         type: boolean
     secrets:
