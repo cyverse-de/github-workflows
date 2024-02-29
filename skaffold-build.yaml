@@ -1,0 +1,44 @@
+name: skaffold-build
+
+on:
+  workflow_call:
+    inputs:
+      prerelease:
+        required: true
+        type: boolean
+    secrets:
+      harbor-username:
+        required: true
+      harbor-password:
+        required: true
+
+jobs:
+  pipeline:
+    name: Skaffold Docker build
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout Repo
+      id: checkout
+      uses: actions/checkout@v4
+    - name: Harbor Login
+      id: harbor_login
+      uses: docker/login-action@v3
+      with:
+        registry: harbor.cyverse.org
+        username: ${{ secrets.harbor-username }}
+        password: ${{ secrets.harbor-password }}
+    - name: Install Kubernetes Tools
+      id: install_k8s_tools
+      uses: yokawasa/action-setup-kube-tools@v0.11.0
+    - name: Build Docker images
+      id: build
+      run: |
+        skaffold build --file-output build.json
+    - name: Build manifest tarball
+      id: build_manifest_tarball
+      run: |
+        tar -czpvf deploy-info.tar.gz build.json skaffold.yaml k8s
+    - uses: ncipollo/release-action@v1
+      with:
+        artifacts: "build.json,deploy-info.tar.gz"
+        prerelease: ${{ inputs.build-prerelease }}
