@@ -1,0 +1,77 @@
+name: go-build
+
+on:
+  workflow_call:
+    inputs:
+      build-prerelease:
+        required: true
+        type: boolean
+      go-version:
+        required: false
+        type: string
+        default: '>=1.21.0'
+      releases-repo:
+        default: cyverse-de/de-releases
+        type: string
+    secrets:
+      github-api-token:
+        required: true
+      releases-repo-push-token:
+        required: true
+
+jobs:
+  pipeline:
+    name: Build Go Executable
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Set Environment
+      run: |
+        echo "REPO_NAME=${GITHUB_REPOSITORY/#*\//}" >> "${GITHUB_ENV}"
+        echo "REPO_URI=https://github.com/${GITHUB_REPOSITORY}" >> "${GITHUB_ENV}"
+        echo "EXECUTABLE_NAME=${GITHUB_REPOSITORY/#*\//}" >> "${GITHUB_ENV}"
+        echo "RELEASE_NAME=${GITHUB_REF_NAME}" >> "${GITHUB_ENV}"
+
+    - name: Checkout Repo
+      id: checkout
+      uses: actions/checkout@v4
+      with:
+        path: "${{ env.REPO_NAME }}"
+
+    - name: Set up Go Tools
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache-dependency-path: "${{ env.REPO_NAME }}/go.sum"
+
+    - name: Build Executable
+      run: |
+        export PATH=${GOROOT}/bin:${PATH}
+        cd "${REPO_NAME}"
+        go build .
+
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "${{ env.REPO_NAME }}/${{ env.EXECUTABLE_NAME }}"
+        prerelease: ${{ inputs.build-prerelease }}
+
+    - name: Pull the Releases Repository
+      uses: actions/checkout@v4
+      with:
+        repository: $${{ inputs.releases-repo }}
+        path: de-releases
+        token: ${{ secrets.releases-repo-push-token }}
+
+    - name: Install jq
+      uses: dcarbone/install-jq-action@v2
+
+    - name: Update Release Record
+      run: |
+        cd de-releases
+        git config user.name "GitHub Actions Bot"
+        git config user.email "<>"
+        mkdir -p deployables
+        echo "{\"repository\":\"${REPO_URI}\",\"release\":\"${RELEASE_NAME}\"}" | jq > "deployables/${REPO_NAME}.json"
+        git add "deployables/${REPO_NAME}.json"
+        git commit -m "updated the deployable version for ${REPO_NAME}"
+        git push
