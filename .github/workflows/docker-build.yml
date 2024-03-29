@@ -1,0 +1,72 @@
+name: docker-build
+
+on:
+  workflow_call:
+    inputs:
+      build-prerelease:
+        required: true
+        type: boolean
+      releases-repo:
+        default: cyverse-de/de-releases
+        type: string
+    secrets:
+      harbor-username:
+        required: true
+      harbor-password:
+        required: true
+      releases-repo-push-token:
+        required: true
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set Environment
+      run: |
+        echo "REPO_NAME=${GITHUB_REPOSITORY/#*\//}" >> "${GITHUB_ENV}"
+        echo "REPO_URI=https://github.com/${GITHUB_REPOSITORY}" >> "${GITHUB_ENV}"
+        echo "DOCKER_IMAGE=harbor.cyverse.org/de/${GITHUB_REPOSITORY/#*\//}:${GITHUB_REF_NAME}" >> "${GITHUB_ENV}"
+
+    - name: Install Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Harbor Login
+      id: harbor_login
+      uses: docker/login-action@v3
+      with:
+        registry: harbor.cyverse.org
+        username: ${{ secrets.harbor-username }}
+        password: ${{ secrets.harbor-password }}
+
+    - name: Build and Push
+      uses: docker/build-push-action@v5
+      with:
+        push: true
+        tags: ${{ env.DOCKER_IMAGE }}
+
+    - name: Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        prerelease: ${{ inputs.build-prerelease }}
+
+    - name: Pull the Releases Repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.releases-repo }}
+        path: de-releases
+        token: ${{ secrets.releases-repo-push-token }}
+
+    - name: Install jq
+      uses: dcarbone/install-jq-action@v2
+
+    - name: Update Release Record
+      run: |
+        cd de-releases
+        git config user.name "GitHub Actions Bot"
+        git config user.email "<>"
+        mkdir -p images
+        echo "{\"repository\":\"${REPO_URI}\",\"release\":\"${RELEASE_NAME}\",\"image\":\"${DOCKER_IMAGE\"}" \
+            | jq > images/${REPO_NAME}.json"
+        git add "images/${REPO_NAME}.json"
+        git commit -m "updated the image version for ${REPO_NAME}"
+        git push
