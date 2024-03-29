@@ -36,7 +36,7 @@ jobs:
         path: "${{ env.REPO_NAME }}"
 
     - name: Set up Go Tools
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: ${{ inputs.go-version }}
         cache-dependency-path: "${{ env.REPO_NAME }}/go.sum"
