@@ -14,8 +14,6 @@ on:
         default: cyverse-de/de-releases
         type: string
     secrets:
-      github-api-token:
-        required: true
       releases-repo-push-token:
         required: true
 
