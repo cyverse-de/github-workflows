@@ -65,7 +65,7 @@ jobs:
         git config user.name "GitHub Actions Bot"
         git config user.email "<>"
         mkdir -p images
-        echo "{\"repository\":\"${REPO_URI}\",\"release\":\"${RELEASE_NAME}\",\"image\":\"${DOCKER_IMAGE\"}" \
+        echo "{\"repository\":\"${REPO_URI}\",\"release\":\"${RELEASE_NAME}\",\"image\":\"${DOCKER_IMAGE}\"}" \
             | jq > "images/${REPO_NAME}.json"
         git add "images/${REPO_NAME}.json"
         git commit -m "updated the image version for ${REPO_NAME}"
