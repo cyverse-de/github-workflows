@@ -85,7 +85,7 @@ jobs:
         git commit -m "updated the build artifacts for ${REPO_NAME}"
         git push
 
-    - name: send webhook
+    - name: Send CICD Webhook
       uses: distributhor/workflow-webhook@v3
       with:
         webhook_type: 'json-extended'
