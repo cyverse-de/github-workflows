@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       golangci-lint-version:
-        default: 1.62.2
+        default: v1.62.2
         type: string
 
 permissions:
