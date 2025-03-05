@@ -16,10 +16,6 @@ on:
         required: true
       releases-repo-push-token:
         required: true
-      cicd-webhook-url:
-        required: true
-      cicd-webhook-secret:
-        required: true
 
 jobs:
   pipeline:
@@ -84,10 +80,3 @@ jobs:
           git add "builds/${REPO_NAME}.json" "services/${REPO_NAME}"
           git commit -m "updated the build artifacts for ${REPO_NAME}"
           git push
-
-      - name: Send CICD Webhook
-        uses: distributhor/workflow-webhook@v3
-        with:
-          webhook_type: "json-extended"
-          webhook_url: ${{ secrets.cicd-webhook-url}}
-          webhook_secret: ${{ secrets.cicd-webhook-secret }}
