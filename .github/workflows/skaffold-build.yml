@@ -26,68 +26,68 @@ jobs:
     name: Skaffold Docker build
     runs-on: ubuntu-22.04
     steps:
-    - name: Set Environment
-      run: |
-        echo "REPO_NAME=${GITHUB_REPOSITORY/#*\//}" >> "${GITHUB_ENV}"
+      - name: Set Environment
+        run: |
+          echo "REPO_NAME=${GITHUB_REPOSITORY/#*\//}" >> "${GITHUB_ENV}"
 
-    - name: Checkout Repo
-      id: checkout
-      uses: actions/checkout@v4
-      with:
-        path: "${{env.REPO_NAME}}"
+      - name: Checkout Repo
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          path: "${{env.REPO_NAME}}"
 
-    - name: Harbor Login
-      id: harbor_login
-      uses: docker/login-action@v3
-      with:
-        registry: harbor.cyverse.org
-        username: ${{ secrets.harbor-username }}
-        password: ${{ secrets.harbor-password }}
+      - name: Harbor Login
+        id: harbor_login
+        uses: docker/login-action@v3
+        with:
+          registry: harbor.cyverse.org
+          username: ${{ secrets.harbor-username }}
+          password: ${{ secrets.harbor-password }}
 
-    - name: Install Kubernetes Tools
-      id: install_k8s_tools
-      uses: yokawasa/action-setup-kube-tools@v0.11.0
+      - name: Install Kubernetes Tools
+        id: install_k8s_tools
+        uses: yokawasa/action-setup-kube-tools@v0.11.2
 
-    - name: Build Docker images
-      id: build
-      run: |
-        cd "${REPO_NAME}"
-        skaffold build --file-output build.json
+      - name: Build Docker images
+        id: build
+        run: |
+          cd "${REPO_NAME}"
+          skaffold build --file-output build.json
 
-    - name: Build manifest tarball
-      id: build_manifest_tarball
-      run: |
-        cd "${REPO_NAME}"
-        tar -czpvf deploy-info.tar.gz build.json skaffold.yaml k8s
+      - name: Build manifest tarball
+        id: build_manifest_tarball
+        run: |
+          cd "${REPO_NAME}"
+          tar -czpvf deploy-info.tar.gz build.json skaffold.yaml k8s
 
-    - name: Create the Release
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: "${{ env.REPO_NAME }}/build.json,${{ env.REPO_NAME }}/deploy-info.tar.gz"
-        prerelease: ${{ inputs.build-prerelease }}
+      - name: Create the Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "${{ env.REPO_NAME }}/build.json,${{ env.REPO_NAME }}/deploy-info.tar.gz"
+          prerelease: ${{ inputs.build-prerelease }}
 
-    - name: Pull the Releases Repository
-      uses: actions/checkout@v4
-      with:
-        repository: ${{ inputs.releases-repo }}
-        path: releases
-        token: ${{ secrets.releases-repo-push-token }}
+      - name: Pull the Releases Repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.releases-repo }}
+          path: releases
+          token: ${{ secrets.releases-repo-push-token }}
 
-    - name: Copy the Artifacts
-      run: |
-        cd releases
-        git config user.name "GitHub Actions Bot"
-        git config user.email "<>"
-        mkdir -p builds "services/${REPO_NAME}"
-        cp "../${REPO_NAME}/build.json" "builds/${REPO_NAME}.json"
-        cp -pr "../${REPO_NAME}/skaffold.yaml" "../${REPO_NAME}/k8s" "services/${REPO_NAME}"
-        git add "builds/${REPO_NAME}.json" "services/${REPO_NAME}"
-        git commit -m "updated the build artifacts for ${REPO_NAME}"
-        git push
+      - name: Copy the Artifacts
+        run: |
+          cd releases
+          git config user.name "GitHub Actions Bot"
+          git config user.email "<>"
+          mkdir -p builds "services/${REPO_NAME}"
+          cp "../${REPO_NAME}/build.json" "builds/${REPO_NAME}.json"
+          cp -pr "../${REPO_NAME}/skaffold.yaml" "../${REPO_NAME}/k8s" "services/${REPO_NAME}"
+          git add "builds/${REPO_NAME}.json" "services/${REPO_NAME}"
+          git commit -m "updated the build artifacts for ${REPO_NAME}"
+          git push
 
-    - name: Send CICD Webhook
-      uses: distributhor/workflow-webhook@v3
-      with:
-        webhook_type: 'json-extended'
-        webhook_url: ${{ secrets.cicd-webhook-url}}
-        webhook_secret: ${{ secrets.cicd-webhook-secret }}
+      - name: Send CICD Webhook
+        uses: distributhor/workflow-webhook@v3
+        with:
+          webhook_type: "json-extended"
+          webhook_url: ${{ secrets.cicd-webhook-url}}
+          webhook_secret: ${{ secrets.cicd-webhook-secret }}
