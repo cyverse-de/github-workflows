@@ -28,7 +28,7 @@ jobs:
 
       - name: Checkout Repo
         id: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: "${{env.REPO_NAME}}"
 
@@ -42,7 +42,7 @@ jobs:
 
       - name: Install Kubernetes Tools
         id: install_k8s_tools
-        uses: yokawasa/action-setup-kube-tools@v0.11.2
+        uses: yokawasa/action-setup-kube-tools@v0.13.1
 
       - name: Build Docker images
         id: build
@@ -63,7 +63,7 @@ jobs:
           prerelease: ${{ inputs.build-prerelease }}
 
       - name: Pull the Releases Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ inputs.releases-repo }}
           path: releases

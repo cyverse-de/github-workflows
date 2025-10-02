@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       golangci-lint-version:
-        default: v1.64.6
+        default: v2.5.0
         type: string
 
 permissions:
@@ -18,13 +18,13 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ inputs.go-version }}
           cache: false
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           # Require: The version of golangci-lint to use.
           # When `install-mode` is `binary` (default) the value can be v1.2 or v1.2.3 or `latest` to use the latest version.

@@ -40,7 +40,7 @@ jobs:
         password: ${{ secrets.harbor-password }}
 
     - name: Build and Push
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         push: true
         tags: ${{ env.DOCKER_IMAGE }}
@@ -51,14 +51,14 @@ jobs:
         prerelease: ${{ inputs.build-prerelease }}
 
     - name: Pull the Releases Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         repository: ${{ inputs.releases-repo }}
         path: de-releases
         token: ${{ secrets.releases-repo-push-token }}
 
     - name: Install jq
-      uses: dcarbone/install-jq-action@v2
+      uses: dcarbone/install-jq-action@v3
 
     - name: Update Release Record
       run: |
