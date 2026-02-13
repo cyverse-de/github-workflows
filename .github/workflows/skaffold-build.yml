@@ -42,7 +42,7 @@ jobs:
 
       - name: Install Kubernetes Tools
         id: install_k8s_tools
-        uses: yokawasa/action-setup-kube-tools@v2.0.1
+        uses: yokawasa/action-setup-kube-tools@v0.13.1
 
       - name: Build Docker images
         id: build
