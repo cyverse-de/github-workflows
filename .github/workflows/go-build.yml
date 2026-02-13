@@ -31,7 +31,7 @@ jobs:
 
     - name: Checkout Repo
       id: checkout
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         path: "${{ env.REPO_NAME }}"
 
@@ -54,14 +54,14 @@ jobs:
         prerelease: ${{ inputs.build-prerelease }}
 
     - name: Pull the Releases Repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         repository: ${{ inputs.releases-repo }}
         path: de-releases
         token: ${{ secrets.releases-repo-push-token }}
 
     - name: Install jq
-      uses: dcarbone/install-jq-action@v2
+      uses: dcarbone/install-jq-action@v3
 
     - name: Update Release Record
       run: |
