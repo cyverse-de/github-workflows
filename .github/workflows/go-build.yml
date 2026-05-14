@@ -20,7 +20,7 @@ on:
 jobs:
   pipeline:
     name: Build Go Executable
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
     - name: Set Environment
       run: |
