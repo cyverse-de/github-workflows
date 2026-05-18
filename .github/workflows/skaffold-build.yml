@@ -35,7 +35,7 @@ jobs:
       - name: Harbor Login
         id: harbor_login
         uses: docker/login-action@v4
-        with:
+       with:
           registry: harbor.cyverse.org
           username: ${{ secrets.harbor-username }}
           password: ${{ secrets.harbor-password }}
@@ -43,6 +43,12 @@ jobs:
       - name: Install Kubernetes Tools
         id: install_k8s_tools
         uses: yokawasa/action-setup-kube-tools@v0.13.5
+
+      - name: build Docker images with the cache tag
+        id: build-cache
+        run: |
+          cd "${REPO_NAME}"
+          skaffold build --tag cache
 
       - name: Build Docker images
         id: build
