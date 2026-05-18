@@ -9,6 +9,9 @@ on:
       releases-repo:
         default: cyverse-de/de-releases
         type: string
+      cache-tag:
+        default: cache
+        type: string
     secrets:
       harbor-username:
         required: true
@@ -23,9 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set Environment
+        id: set_environment
         run: |
-          echo "BUILDKIT_INLINE_CACHE=1" >> "${GITHUB_ENV}"
           echo "REPO_NAME=${GITHUB_REPOSITORY/#*\//}" >> "${GITHUB_ENV}"
+          echo "CACHE_TAG=${{ inputs.cache-tag }}" >> "${GITHUB_ENV}"
 
       - name: Checkout Repo
         id: checkout
@@ -41,15 +45,34 @@ jobs:
           username: ${{ secrets.harbor-username }}
           password: ${{ secrets.harbor-password }}
 
+      - name: Set up docker buildx
+        id: install_docker_buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Install jq
+        id: install_jq
+        uses: dcarbone/install-jq-action@v3
+
       - name: Install Kubernetes Tools
         id: install_k8s_tools
         uses: yokawasa/action-setup-kube-tools@v0.13.5
 
-      - name: build Docker images with the cache tag
-        id: build-cache
+      - name: Add repotags to the environment
+        id: add_repotags
         run: |
           cd "${REPO_NAME}"
-          skaffold build --tag cache
+          echo "BUILD_REPOTAG=$(skaffold build --dry-run -q -o '{{json .}}' | jq -r '.builds[0].tag')" \
+              >> "${GITHUB_ENV}"
+          echo "CACHE_REPOTAG=$(skaffold build --dry-run -q -o '{{json .}}' --tag ${CACHE_TAG} | jq -r '.builds[0].tag')" \
+              >> "${GITHUB_ENV}"
+
+      - name: build Docker images with the cache tag
+        id: build_cache
+        uses: docker/build-push-action@v7
+        with:
+          tags: "${{ env.BUILD_REPOTAG }}"
+          cache-from: "type=registry,ref=${{ env.CACHE_REPOTAG }}"
+          cache-to: "type=registry,ref=${{ env.CACHE_REPOTAG }},mode=max"
 
       - name: Build Docker images
         id: build
