@@ -72,8 +72,8 @@ jobs:
           echo "PLATFORMS=$(skaffold diagnose --yaml-only | yq -r '.build.platforms | join(",")')" \
               >> "${GITHUB_ENV}"
 
-      - name: build Docker images with the cache tag
-        id: build_cache
+      - name: build the Docker image
+        id: build_image
         uses: docker/build-push-action@v7
         with:
           context: "${{ env.REPO_NAME}}"
@@ -83,11 +83,14 @@ jobs:
           cache-to: "type=registry,ref=${{ env.CACHE_REPOTAG }},mode=max"
           push: true
 
-      - name: Build Docker images
+      - name: Write build.json
         id: build
         run: |
           cd "${REPO_NAME}"
-          skaffold build --file-output build.json
+          skaffold build --dry-run -q -o '{{json .}}' \
+              | jq --arg digest "${{ steps.build_cache.outputs_digest }}" \
+                  'builds[0].tag += "@" | $digest' \
+              > build.json
 
       - name: Build manifest tarball
         id: build_manifest_tarball
