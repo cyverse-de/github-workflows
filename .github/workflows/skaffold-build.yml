@@ -88,7 +88,7 @@ jobs:
         run: |
           cd "${REPO_NAME}"
           skaffold build --dry-run -q -o '{{json .}}' \
-              | jq -c --arg digest "${{ steps.build_cache.outputs_digest }}" \
+              | jq -c --arg digest "${{ steps.build_cache.outputs.digest }}" \
                   '.builds[0].tag += "@" + $digest' \
               > build.json
 
