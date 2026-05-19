@@ -88,8 +88,8 @@ jobs:
         run: |
           cd "${REPO_NAME}"
           skaffold build --dry-run -q -o '{{json .}}' \
-              | jq --arg digest "${{ steps.build_cache.outputs_digest }}" \
-                  'builds[0].tag += "@" | $digest' \
+              | jq -c --args digest "${{ steps.build_cache.outputs_digest }}" \
+                  '.builds[0].tag += "@" + $digest' \
               > build.json
 
       - name: Build manifest tarball
