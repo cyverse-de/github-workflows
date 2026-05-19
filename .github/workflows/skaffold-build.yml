@@ -76,6 +76,7 @@ jobs:
         id: build_cache
         uses: docker/build-push-action@v7
         with:
+          context: "${{ env.REPO_NAME}}"
           tags: "${{ env.BUILD_REPOTAG }}"
           platforms: "${{ env.PLATFORMS }}"
           cache-from: "type=registry,ref=${{ env.CACHE_REPOTAG }}"
