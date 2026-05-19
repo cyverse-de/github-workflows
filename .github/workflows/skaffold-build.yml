@@ -53,6 +53,10 @@ jobs:
         id: install_jq
         uses: dcarbone/install-jq-action@v3
 
+      - name: Install yq
+        id: install_yq
+        uses: chrisdickinson/setup-yq@v1
+
       - name: Install Kubernetes Tools
         id: install_k8s_tools
         uses: yokawasa/action-setup-kube-tools@v0.13.5
@@ -65,14 +69,18 @@ jobs:
               >> "${GITHUB_ENV}"
           echo "CACHE_REPOTAG=$(skaffold build --dry-run -q -o '{{json .}}' --tag ${CACHE_TAG} | jq -r '.builds[0].tag')" \
               >> "${GITHUB_ENV}"
+          echo "PLATFORMS=$(skaffold diagnose --yaml-only | yq -r '.build.platforms | join(",")')" \
+              >> "${GITHUB_ENV}"
 
       - name: build Docker images with the cache tag
         id: build_cache
         uses: docker/build-push-action@v7
         with:
           tags: "${{ env.BUILD_REPOTAG }}"
+          platforms: "${{ env.PLATFORMS }}"
           cache-from: "type=registry,ref=${{ env.CACHE_REPOTAG }}"
           cache-to: "type=registry,ref=${{ env.CACHE_REPOTAG }},mode=max"
+          push: true
 
       - name: Build Docker images
         id: build
