@@ -1,0 +1,26 @@
+name: go-test
+
+on:
+  workflow_call:
+    inputs:
+      go-version:
+        required: false
+        type: string
+        default: '>=1.21.0'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Run Go Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ inputs.go-version }}
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+      - name: Run Tests
+        run: gotestsum --format pkgname -- ./...
