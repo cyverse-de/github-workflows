@@ -4,13 +4,19 @@ on:
   workflow_call:
     inputs:
       build-prerelease:
-        required: true
+        description: deprecated and ignored; builds publish a descriptor, not a GitHub release
+        required: false
+        default: false
         type: boolean
-      releases-repo:
-        default: cyverse-de/de-releases
+      service-name:
+        description: deployments service role name; defaults to this repo's name
+        default: ""
         type: string
-      cache-tag:
-        default: cache
+      deployments-repo:
+        default: cyverse-de/deployments
+        type: string
+      deployments-branch:
+        default: main
         type: string
     secrets:
       harbor-username:
@@ -28,14 +34,33 @@ jobs:
       - name: Set Environment
         id: set_environment
         run: |
-          echo "REPO_NAME=${GITHUB_REPOSITORY/#*\//}" >> "${GITHUB_ENV}"
-          echo "CACHE_TAG=${{ inputs.cache-tag }}" >> "${GITHUB_ENV}"
+          service="${{ inputs.service-name }}"
+          echo "SERVICE_NAME=${service:-${GITHUB_REPOSITORY##*/}}" >> "${GITHUB_ENV}"
 
-      - name: Checkout Repo
+      - name: Checkout Source Repo
         id: checkout
         uses: actions/checkout@v6
         with:
-          path: "${{env.REPO_NAME}}"
+          path: "${{ env.SERVICE_NAME }}"
+          fetch-depth: 0
+
+      - name: Checkout Deployments Repo
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.deployments-repo }}
+          ref: ${{ inputs.deployments-branch }}
+          path: deployments
+          token: ${{ secrets.releases-repo-push-token }}
+
+      - name: Verify the service role exists
+        run: |
+          role_dir="deployments/ansible/roles/services/${SERVICE_NAME}"
+          if [ ! -d "${role_dir}" ]; then
+            echo "::error::No service role at ${role_dir}. The repo name must match a" \
+              "deployments service role, or pass service-name. build_it.yml would" \
+              "otherwise match no --tags and silently build nothing."
+            exit 1
+          fi
 
       - name: Harbor Login
         id: harbor_login
@@ -49,76 +74,30 @@ jobs:
         id: install_docker_buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Install jq
-        id: install_jq
-        uses: dcarbone/install-jq-action@v3
-
-      - name: Install yq
-        id: install_yq
-        uses: dcarbone/install-yq-action@v1
-
-      - name: Install Kubernetes Tools
-        id: install_k8s_tools
-        uses: yokawasa/action-setup-kube-tools@v0.13.5
-
-      - name: Add repotags to the environment
-        id: add_repotags
+      - name: Install skaffold
         run: |
-          cd "${REPO_NAME}"
-          echo "BUILD_REPOTAG=$(skaffold build --dry-run -q -o '{{json .}}' | jq -r '.builds[0].tag')" \
-              >> "${GITHUB_ENV}"
-          echo "CACHE_REPOTAG=$(skaffold build --dry-run -q -o '{{json .}}' --tag ${CACHE_TAG} | jq -r '.builds[0].tag')" \
-              >> "${GITHUB_ENV}"
-          echo "PLATFORMS=$(skaffold diagnose --yaml-only | yq -r '.build.platforms | join(",")')" \
-              >> "${GITHUB_ENV}"
+          sudo curl -fsSL -o /usr/local/bin/skaffold \
+            https://storage.googleapis.com/skaffold/releases/latest/skaffold-linux-amd64
+          sudo chmod +x /usr/local/bin/skaffold
 
-      - name: build the Docker image
-        id: build_image
-        uses: docker/build-push-action@v7
-        with:
-          context: "${{ env.REPO_NAME}}"
-          tags: "${{ env.BUILD_REPOTAG }}"
-          platforms: "${{ env.PLATFORMS }}"
-          cache-from: "type=registry,ref=${{ env.CACHE_REPOTAG }}"
-          cache-to: "type=registry,ref=${{ env.CACHE_REPOTAG }},mode=max"
-          push: true
+      - name: Install ansible
+        run: pipx install ansible-core
 
-      - name: Write build.json
-        id: build
+      - name: Build and update the descriptor
         run: |
-          cd "${REPO_NAME}"
-          skaffold build --dry-run -q -o '{{json .}}' \
-              | jq -c --arg digest "${{ steps.build_image.outputs.digest }}" \
-                  '.builds[0].tag += "@" + $digest' \
-              > build.json
+          printf '[k8s_controllers]\nlocalhost ansible_connection=local\n' > inventory.ini
+          ansible-playbook -i inventory.ini deployments/ansible/build_it.yml \
+            --tags "${SERVICE_NAME}" \
+            -e source_repo="${GITHUB_WORKSPACE}/${SERVICE_NAME}" \
+            -e git_ref="${GITHUB_REF_NAME}" \
+            -e push_images=true
 
-      - name: Build manifest tarball
-        id: build_manifest_tarball
+      - name: Commit the updated descriptor
         run: |
-          cd "${REPO_NAME}"
-          tar -czpvf deploy-info.tar.gz build.json skaffold.yaml k8s
-
-      - name: Create the Release
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "${{ env.REPO_NAME }}/build.json,${{ env.REPO_NAME }}/deploy-info.tar.gz"
-          prerelease: ${{ inputs.build-prerelease }}
-
-      - name: Pull the Releases Repository
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ inputs.releases-repo }}
-          path: releases
-          token: ${{ secrets.releases-repo-push-token }}
-
-      - name: Copy the Artifacts
-        run: |
-          cd releases
+          cd deployments
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
-          mkdir -p builds "services/${REPO_NAME}"
-          cp "../${REPO_NAME}/build.json" "builds/${REPO_NAME}.json"
-          cp -pr "../${REPO_NAME}/skaffold.yaml" "../${REPO_NAME}/k8s" "services/${REPO_NAME}"
-          git add "builds/${REPO_NAME}.json" "services/${REPO_NAME}"
-          git commit -m "updated the build artifacts for ${REPO_NAME}"
+          git add "ansible/roles/services/${SERVICE_NAME}/files/${SERVICE_NAME}.json"
+          git diff --cached --quiet \
+            || git commit -m "updated the build descriptor for ${SERVICE_NAME}"
           git push
