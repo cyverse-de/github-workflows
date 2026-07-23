@@ -12,6 +12,14 @@ on:
         description: deployments service role name; defaults to this repo's name
         default: ""
         type: string
+      extra-service-names:
+        description: >
+          Space-separated list of additional deployments service role names whose
+          build descriptors should be updated to the same image built here.
+          Use this when one Docker image is shared by multiple service roles
+          (e.g. app-exposer and vice-operator both use the app-exposer image).
+        default: ""
+        type: string
       deployments-repo:
         default: cyverse-de/deployments
         type: string
@@ -95,11 +103,20 @@ jobs:
       - name: Commit the updated descriptor
         env:
           DEPLOYMENTS_BRANCH: ${{ inputs.deployments-branch }}
+          EXTRA_SERVICE_NAMES: ${{ inputs.extra-service-names }}
         run: |
           cd deployments
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
           git add "ansible/roles/services/${SERVICE_NAME}/files/${SERVICE_NAME}.json"
+          # Copy the freshly-written primary descriptor to any extra service roles
+          # that share the same image (e.g. vice-operator mirrors app-exposer).
+          for extra in ${EXTRA_SERVICE_NAMES}; do
+            src="ansible/roles/services/${SERVICE_NAME}/files/${SERVICE_NAME}.json"
+            dst="ansible/roles/services/${extra}/files/${extra}.json"
+            cp "${src}" "${dst}"
+            git add "${dst}"
+          done
           if git diff --cached --quiet; then
             echo "descriptor unchanged; nothing to commit"
             exit 0
