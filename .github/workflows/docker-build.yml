@@ -9,6 +9,12 @@ on:
       releases-repo:
         default: cyverse-de/de-releases
         type: string
+      push-mutable-tags:
+        description: >
+          When true, also push mutable :qa and :latest tags after the versioned
+          build. RC builds push :qa only; release builds push both :qa and :latest.
+        default: true
+        type: boolean
     secrets:
       harbor-username:
         required: true
@@ -71,3 +77,17 @@ jobs:
         git add "images/${REPO_NAME}.json"
         git commit -m "updated the image version for ${REPO_NAME}"
         git push
+
+    - name: Retag as :qa
+      if: ${{ inputs.push-mutable-tags }}
+      run: |
+        docker buildx imagetools create \
+          --tag harbor.cyverse.org/de/${REPO_NAME}:qa \
+          ${DOCKER_IMAGE}
+
+    - name: Retag as :latest (release only)
+      if: ${{ inputs.push-mutable-tags && !inputs.build-prerelease }}
+      run: |
+        docker buildx imagetools create \
+          --tag harbor.cyverse.org/de/${REPO_NAME}:latest \
+          ${DOCKER_IMAGE}
